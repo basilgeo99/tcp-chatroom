@@ -1,0 +1,94 @@
+import threading
+import socket
+
+port = 34443
+localhost = '127.0.0.1'
+server = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+
+
+while True:
+    try:
+        host = input("Enter host address: ")
+        if host == 'local':
+            host = localhost
+        server.bind((host,port))
+        print('\nServer connection success')
+        break
+    except Exception as e:
+        print("\nError occurred ")
+        print(e)
+        break
+
+
+clients = []
+nicknames = []
+client_threads = []
+
+def broadcast(message):
+    for client in clients:
+        client.send(message)
+
+def toOthers(message,client):
+    for c in clients:
+        if c == client:
+            pass
+        else:
+            c.send(message)
+
+def handle(client):
+    while True:
+        try:
+            message = client.recv(1024)
+            toOthers(message,client)
+        except:
+            index = clients.index(client)
+            clients.remove(client)
+            client.close()
+            nickname = nicknames[index]
+            broadcast(f'{nickname} has left the chatroom'.encode('ascii'))
+            nicknames.remove(nickname)
+            break
+
+def receive():
+    while True:
+        client,address = server.accept()
+        print(f'\nConnected with {str(address)}')
+        
+        client.send("NICK".encode('ascii'))
+        nickname = client.recv(1024).decode('ascii')
+        nicknames.append(nickname)
+        clients.append(client)
+
+        print(f'\nNickname of the client is {nickname}')
+        broadcast(f'{nickname} joined the chatroom'.encode('ascii'))
+        client.send('Connected to the server'.encode('ascii'))
+
+        thread = threading.Thread(target = handle, args=(client,))
+        client_threads.append(thread)
+        thread.start()
+
+# def serve():
+#     while True:
+#         typed = input()
+#         if input == "exit" or input == "close" or input == "quit":
+#             broadcast("Serve is being closed".encode("ascii"))
+#             for t in client_threads:
+#                 t.join()
+#             server.close()
+#             # receive_thread.join()
+#             serve_thread.join()
+
+#             exit(0)
+#         if input == "reset":
+#             for t in client_threads:
+#                 t.join()
+
+# serve_thread = threading.Thread(target=serve)
+# serve_thread.start()
+
+# receive_thread = threading.Thread(target=receive)
+# receive_thread.start()
+
+print('\nServer is listening ...')
+receive()
+
